@@ -1,15 +1,16 @@
 -- ==============================================================================
 -- Warehouse Management System (WMS) - Operational Optimization Logic
 -- Views, Stored Routines & Dynamic Re-Slotting Logic
--- Dialect: ANSI SQL / SQLite / PostgreSQL compatible
+-- Dialect: SQLite 3 (PostgreSQL equivalents noted where applicable)
 -- Author: Aryan Chintaman Manjhi (github.com/KiskuAryan)
 -- ==============================================================================
 
 -- ------------------------------------------------------------------------------
 -- 1. VIEW: Automated SKU Velocity Recalculation (Rolling 30-Day Window)
--- Dynamically scores SKU velocity to eliminate static ABC misallocations
+-- Dynamically calculates SKU velocity from recent orders with explicit date filtering.
 -- ------------------------------------------------------------------------------
-CREATE VIEW IF NOT EXISTS v_sku_rolling_velocity AS
+DROP VIEW IF EXISTS v_sku_rolling_velocity;
+CREATE VIEW v_sku_rolling_velocity AS
 WITH pick_summary AS (
     SELECT 
         oi.sku_id,
@@ -18,7 +19,9 @@ WITH pick_summary AS (
         COUNT(oi.item_id) AS total_picks_30d,
         SUM(oi.requested_qty) AS units_demanded_30d
     FROM order_items oi
+    JOIN orders o ON oi.order_id = o.order_id
     JOIN products_sku p ON oi.sku_id = p.sku_id
+    WHERE o.order_timestamp >= datetime((SELECT max(order_timestamp) FROM orders), '-30 days')
     GROUP BY oi.sku_id, p.sku_code, p.product_name
 ),
 cumulative_calc AS (
@@ -42,7 +45,7 @@ SELECT
     pick_share_pct,
     cumulative_share_pct,
     CASE 
-        WHEN cumulative_share_pct <= 70.0 THEN 'A'
+        WHEN cumulative_share_pct <= 75.0 THEN 'A'
         WHEN cumulative_share_pct <= 90.0 THEN 'B'
         ELSE 'C'
     END AS dynamic_abc_class
@@ -51,10 +54,11 @@ FROM cumulative_calc;
 
 -- ------------------------------------------------------------------------------
 -- 2. VIEW: Dynamic Re-Slotting Swap Recommendations
--- Finds high-frequency Class-A SKUs in Zone C and pairs them with 
--- low-frequency Class-C SKUs currently taking up prime Zone A real estate.
+-- Pairs high-velocity Class-A SKUs trapped in Zone C with 
+-- low-velocity Class-C SKUs occupying prime Zone A mezzanine slots.
 -- ------------------------------------------------------------------------------
-CREATE VIEW IF NOT EXISTS v_slotting_swap_proposals AS
+DROP VIEW IF EXISTS v_slotting_swap_proposals;
+CREATE VIEW v_slotting_swap_proposals AS
 WITH misallocated_fast_movers AS (
     SELECT 
         v.sku_id AS fast_sku_id,
@@ -92,7 +96,7 @@ SELECT
     s.prime_bin_code AS target_bin_zone_a,
     s.slow_sku_code AS demoted_sku_code,
     s.slow_product_name AS demoted_product,
-    'ESTIMATED TRAVEL SAVINGS: ~330m per pick event' AS projected_impact
+    'ESTIMATED TRAVEL SAVINGS: ~260m roundtrip per pick event' AS projected_impact_note
 FROM misallocated_fast_movers f
 JOIN misallocated_slow_movers s ON f.priority_rank = s.priority_rank;
 
@@ -100,9 +104,10 @@ JOIN misallocated_slow_movers s ON f.priority_rank = s.priority_rank;
 -- ------------------------------------------------------------------------------
 -- 3. VIEW: Batch Wave-Picking Aggregation
 -- Aggregates discrete pending orders into unified picking waves
--- Eliminates duplicate picker travel through the same warehouse aisles
+-- (Note: In PostgreSQL, replace GROUP_CONCAT with STRING_AGG(o.order_number, ', '))
 -- ------------------------------------------------------------------------------
-CREATE VIEW IF NOT EXISTS v_wave_picking_batches AS
+DROP VIEW IF EXISTS v_wave_picking_batches;
+CREATE VIEW v_wave_picking_batches AS
 SELECT 
     b.zone_id,
     z.zone_name,
@@ -117,6 +122,7 @@ JOIN orders o ON oi.order_id = o.order_id
 JOIN products_sku p ON oi.sku_id = p.sku_id
 JOIN inventory_bins b ON oi.allocated_bin_id = b.bin_id
 JOIN warehouse_zones z ON b.zone_id = z.zone_id
+WHERE o.status = 'PENDING'
 GROUP BY b.zone_id, z.zone_name, b.aisle_num, p.sku_code, p.product_name
 HAVING COUNT(DISTINCT oi.order_id) > 1
 ORDER BY b.zone_id, b.aisle_num;

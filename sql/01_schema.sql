@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- Warehouse Management System (WMS) - Core Relational Schema
--- Optimized for SQLite and PostgreSQL compatibility
+-- Dialect: SQLite 3 (Standard SQLite DDL; PostgreSQL syntax notes included in comments)
 -- Author: Aryan Chintaman Manjhi (github.com/KiskuAryan)
 -- ==============================================================================
 

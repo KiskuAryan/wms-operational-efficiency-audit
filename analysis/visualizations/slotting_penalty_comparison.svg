@@ -1,18 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="700" height="350" viewBox="0 0 700 350" style="background:#0f172a; font-family:sans-serif;">
-        <text x="350" y="35" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="bold">Picker Travel &amp; Pick Duration: Deep Storage vs Proximity</text>
-        <line x1="100" y1="280" x2="620" y2="280" stroke="#334155" stroke-width="2"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="360" viewBox="0 0 700 360" style="background:#0f172a; font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;">
+        <text x="350" y="32" text-anchor="middle" fill="#f8fafc" font-size="16" font-weight="bold">Picker Travel &amp; Pick Duration: Deep Storage vs Proximity</text>
+        <text x="350" y="52" text-anchor="middle" fill="#94a3b8" font-size="12">[Synthetic Simulation Model: 1,200 Orders Analyzed]</text>
+        
+        <line x1="90" y1="280" x2="630" y2="280" stroke="#334155" stroke-width="2"/>
         
         <!-- Deep Zone C -->
-        <rect x="160" y="80" width="130" height="200" rx="6" fill="#ef4444"/>
-        <text x="225" y="70" text-anchor="middle" fill="#ef4444" font-weight="bold" font-size="14">418.8 m (33.3 min)</text>
-        <text x="225" y="305" text-anchor="middle" fill="#94a3b8" font-size="12">Zone C (Deep Storage)</text>
+        <rect x="150" y="90" width="135" height="190" rx="6" fill="#ef4444"/>
+        <text x="217" y="80" text-anchor="middle" fill="#ef4444" font-weight="bold" font-size="14">418.8 m (33.3 min)</text>
+        <text x="217" y="305" text-anchor="middle" fill="#f1f5f9" font-size="13" font-weight="600">Zone C (Deep Storage)</text>
+        <text x="217" y="325" text-anchor="middle" fill="#94a3b8" font-size="11">Mis-slotted Class-A SKUs</text>
 
-        <!-- Zone A / B -->
-        <rect x="410" y="235" width="130" height="45" rx="6" fill="#10b981"/>
-        <text x="475" y="225" text-anchor="middle" fill="#10b981" font-weight="bold" font-size="14">88.5 m (11.5 min)</text>
-        <text x="475" y="305" text-anchor="middle" fill="#94a3b8" font-size="12">Zone A / B (Proximity)</text>
+        <!-- Proximity Zone A/B -->
+        <rect x="415" y="240" width="135" height="40" rx="6" fill="#10b981"/>
+        <text x="482" y="230" text-anchor="middle" fill="#10b981" font-weight="bold" font-size="14">88.5 m (11.5 min)</text>
+        <text x="482" y="305" text-anchor="middle" fill="#f1f5f9" font-size="13" font-weight="600">Zone A / B (Proximity)</text>
+        <text x="482" y="325" text-anchor="middle" fill="#94a3b8" font-size="11">Mezzanine Fast-Pick</text>
 
-        <!-- Benchmark Arrow & Tag -->
-        <text x="350" y="150" text-anchor="middle" fill="#38bdf8" font-size="14" font-weight="bold">-78.8% Travel Distance</text>
-        <text x="350" y="170" text-anchor="middle" fill="#38bdf8" font-size="12">via Optimal Re-Slotting</text>
+        <!-- Center Benchmark Card -->
+        <rect x="300" y="130" width="105" height="55" rx="6" fill="#1e293b" stroke="#38bdf8"/>
+        <text x="352" y="152" text-anchor="middle" fill="#38bdf8" font-size="13" font-weight="bold">-78.9% Travel</text>
+        <text x="352" y="172" text-anchor="middle" fill="#94a3b8" font-size="11">via Re-Slotting</text>
     </svg>
