@@ -1,6 +1,6 @@
 # Comprehensive System Improvement & Operational Efficiency Proposal
 **Target Facility:** Tokyo Bay Logistics Center  
-**Target Organization:** Kyowa Unyu Soko Co., Ltd. (Simulation Case Study)  
+**Target Organization:** Enterprise 3PL Logistics Operations (Tokyo Bay Fulfillment Center)  
 **Author:** Aryan Chintaman Manjhi ([github.com/KiskuAryan](https://github.com/KiskuAryan))  
 **Document Ref:** WMS-IMP-2026-09-REV1  
 **Deliverable Status:** Complete Technical & Operational Proposal  
@@ -153,7 +153,7 @@ Refactor `OrderFulfillmentManager.vb` to modern .NET asynchronous standards:
 
 ```mermaid
 gantt
-    title Kyowa Unyu Soko WMS Improvement Implementation
+    title WMS System Improvement & Modernization Implementation
     dateFormat  YYYY-MM-DD
     section Phase 1: Database
     Apply Indexes & Snapshot Isolation   :active, 2026-11-01, 7d
@@ -178,7 +178,7 @@ gantt
 
 ## 6. Conclusion & Value Summary
 
-By addressing the root causes identified in our database audit—rather than simply adding more floor labor—Kyowa Unyu Soko can achieve:
+By addressing the root causes identified in our database audit—rather than simply adding more floor labor—the logistics operation can achieve:
 * **38.3% faster order turnaround** from receipt to dispatch dock.
 * **160+ kilometers of unnecessary picker walking eliminated** each month, lowering physical fatigue and improving workplace safety.
 * **Complete elimination of peak-hour system freezes**, allowing the facility to expand daily fulfillment capacity by over 25% on existing infrastructure.

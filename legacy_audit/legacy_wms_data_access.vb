@@ -1,6 +1,6 @@
 ' ==============================================================================
 ' Legacy Warehouse Management System (WMS) - Data Access Module
-' Target System: Kyowa Unyu Soko Style Legacy WMS (circa 2012-2018)
+' Target System: Enterprise 3PL Legacy WMS Architecture (circa 2014-2020)
 ' File: legacy_wms_data_access.vb
 '
 ' AUDIT CONTEXT:
@@ -18,7 +18,7 @@ Namespace LegacyWMS.DataAccess
 
     Public Class OrderFulfillmentManager
 
-        Private ReadOnly connectionString As String = "Server=wms-sql-srv01;Database=Kyowa_WMS;Integrated Security=True;"
+        Private ReadOnly connectionString As String = "Server=wms-sql-srv01;Database=Enterprise_WMS;Integrated Security=True;"
 
         ''' <summary>
         ''' ANTI-PATTERN 1: N+1 Database Roundtrip Problem

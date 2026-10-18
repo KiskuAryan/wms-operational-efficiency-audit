@@ -29,7 +29,7 @@ def run_diagnostics():
 
     print("\n" + "="*80)
     print("   WAREHOUSE MANAGEMENT SYSTEM (WMS) OPERATIONAL EFFICIENCY AUDIT")
-    print("   Target Facility: Tokyo Bay Logistics Center (Simulated Kyowa Unyu Soko)")
+    print("   Target Facility: Tokyo Bay Logistics Center (High-Throughput 3PL Case Study)")
     print("="*80 + "\n")
 
     # 1. Total Volume & Headline Metrics

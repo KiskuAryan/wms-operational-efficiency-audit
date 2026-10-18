@@ -10,7 +10,7 @@
 
 ## 📌 Executive Overview
 
-This project is a comprehensive operational audit and system improvement study of a high-throughput **Warehouse Management System (WMS)**, modeled after modern Japanese 3PL logistics facilities (specifically **Kyowa Unyu Soko Co., Ltd.**).
+This project is a comprehensive operational audit and system improvement study of a high-throughput **Warehouse Management System (WMS)**, modeled after high-volume 3PL logistics facilities and enterprise distribution centers.
 
 Using real-world transactional logistics data (1,200 orders, 50 SKUs, 3 warehouse zones, and 297 km of picker transit logs), this repository diagnoses root causes behind order fulfillment latency and delivers a **production-ready technical and operational improvement roadmap**.
 
@@ -135,4 +135,4 @@ sqlite3 wms.db < sql/03_bottleneck_queries.sql
 **Aryan Chintaman Manjhi**  
 * GitHub: [@KiskuAryan](https://github.com/KiskuAryan)  
 * Focus: Data Engineering, System Analytics, and Relational Database Optimization  
-* Prepared for: *Kyowa Unyu Soko Co., Ltd. - System Improvement Internship via Tech Japan*
+* Target Domain: *Warehouse Management Systems (WMS), Supply Chain Analytics & Database Optimization*
