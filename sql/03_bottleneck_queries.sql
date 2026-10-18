@@ -60,14 +60,14 @@ SELECT
     pick_share_pct,
     cumulative_share_pct,
     CASE 
-        WHEN cumulative_share_pct <= 75.0 THEN 'CLASS_A_FAST_MOVER'
-        WHEN cumulative_share_pct <= 90.0 THEN 'CLASS_B_MEDIUM_MOVER'
+        WHEN cumulative_share_pct <= 80.0 THEN 'CLASS_A_FAST_MOVER'
+        WHEN cumulative_share_pct <= 95.0 THEN 'CLASS_B_MEDIUM_MOVER'
         ELSE 'CLASS_C_SLOW_MOVER'
     END AS actual_velocity_class,
     CASE 
-        WHEN cumulative_share_pct <= 75.0 AND zone_code = 'ZONE_C_BULK' 
+        WHEN cumulative_share_pct <= 80.0 AND zone_code = 'ZONE_C_BULK' 
             THEN 'SUB-OPTIMAL: High-frequency SKU in Deep Bulk Storage'
-        WHEN cumulative_share_pct > 90.0 AND zone_code = 'ZONE_A_FASTPICK' 
+        WHEN cumulative_share_pct > 95.0 AND zone_code = 'ZONE_A_FASTPICK' 
             THEN 'SUB-OPTIMAL: Low-frequency SKU blocking Mezzanine Fast-Pick'
         ELSE 'OPTIMALLY_SLOTTED'
     END AS slotting_audit_flag

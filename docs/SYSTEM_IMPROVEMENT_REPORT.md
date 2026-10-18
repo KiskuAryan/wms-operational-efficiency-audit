@@ -2,7 +2,7 @@
 **Study Type:** Synthetic Simulation Case Study & Diagnostic Methodology  
 **Target Domain:** Enterprise 3PL Warehouse Operations (High-Volume Fulfillment Center Model)  
 **Author:** Aryan Chintaman Manjhi ([github.com/KiskuAryan](https://github.com/KiskuAryan))  
-**Document Ref:** WMS-IMP-2026-SYNTH-REV2  
+**Document Ref:** WMS-IMP-2026-SYNTH-REV3  
 
 ---
 
@@ -10,7 +10,11 @@
 
 > [!IMPORTANT]
 > **Data Authenticity & Modeling Methodology:**  
-> All facility operational metrics, order logs, and transaction timestamps analyzed in this report are **synthetically generated** through a calibrated discrete-event simulation model (`scripts/seed_database.py`). The parameters are grounded in established industrial engineering distributions (Pareto 80/20 SKU demand, Poisson-like order arrivals during shift surges, and Euclidean aisle transit vectors).  
+> All facility operational metrics, order logs, and transaction timestamps analyzed in this report are **synthetically generated** through a parameterized discrete-event simulation model (`scripts/seed_database.py`). The parameters are grounded in standard supply-chain distributions:
+> - **Demand Distribution:** Pareto 80/20 SKU velocity distribution.
+> - **Order Generation:** 1,200 simulated orders across 50 SKUs and 3 storage zones over 30 days.
+> - **Dispatch Queueing:** Peak daytime order arrival surge modeled between 10:00 and 14:00.
+> - **Transit Modeling:** Orthogonal transit distances from the shipping dock to zone centroids (Mezzanine Zone A: 15m, Mid-Bay Zone B: 60m, Deep Bulk Zone C: 145m).
 >
 > This report demonstrates an **analytical audit methodology, SQL optimization pipeline, and architectural modernization framework**. The conclusions and projected gains represent **theoretical model estimates**; practical field implementation requires on-site validation against an organization's specific warehouse layout, physical equipment, WMS telemetry, and labor workflows.
 
@@ -20,19 +24,19 @@
 
 Over a simulated 30-day evaluation period comprising 1,200 customer orders and 297.1 kilometers of picker floor travel, our SQL diagnostic audit identified two structural bottlenecks:
 
-1. **Storage Slotting Inefficiency (ABC Pareto Mismatch):** Three of the highest-velocity Class-A SKUs are currently stored in deep bulk storage (Zone C, 145m from dock) rather than in the proximity mezzanine (Zone A, 15m from dock). In simulation, orders requiring items from Zone C experienced a **4.7x travel distance penalty** (418.8m vs 88.5m) and tripled pick duration (33.3 min vs 11.5 min).
-2. **Dispatch Queueing Congestion (10:00–14:00 Daytime Surge):** During peak daytime hours, order allocation dwell time surges from 11.5 minutes to an average of **44.5 minutes**, modeled after single-threaded ADO.NET query loops and table-level locks (`TABLOCKX`) in legacy WMS backends.
+1. **Storage Slotting Inefficiency (ABC Pareto Mismatch):** Four of the highest-velocity Class-A SKUs are currently stored in deep bulk storage (Zone C, 145m from dock) rather than in the proximity mezzanine (Zone A, 15m from dock). In simulation, orders requiring items from Zone C experienced a **4.7x travel distance penalty** (418.8m vs 88.5m) and tripled pick duration (33.3 min vs 11.5 min).
+2. **Dispatch Queueing Congestion (10:00–14:00 Daytime Surge):** During peak daytime hours, order allocation dwell time surges from 11.6 minutes to an average of **44.5 minutes**, modeled to reflect dispatch lock escalation and synchronous query queueing in legacy WMS backends.
 
 ### Observed Baseline vs. Theoretical Model Projections
 
-| Operational Metric | Observed Simulation Baseline | Theoretical Model Projection | Derivation / Assumptions |
+| Operational Metric | Observed Simulation Baseline | Theoretical Model Projection | Derivation & Modeling Assumptions |
 | :--- | :--- | :--- | :--- |
 | **Average Order Cycle Time** | 101.6 minutes | **~67.2 minutes (-33.8%)** | Calculated by subtracting projected travel time savings and queue wait reduction. |
-| **Average Picker Travel / Order** | 247.6 meters | **149.7 meters (-39.5%)** | $\frac{\text{Baseline Travel (297.1 km)} - \text{Relocation Savings (117.5 km)}}{1,200 \text{ orders}}$ |
-| **Monthly Travel Avoided** | 0 km | **117.5 km eliminated** | $452 \text{ relocated picks} \times 2 \times (145\text{m} - 15\text{m}) = 117,520\text{ m}$. |
-| **Walking Time Recovered** | 0 hours | **~32.6 picker-hours / mo** | Assumes standard picker walking speed of $1.0\text{ m/s}$ ($60\text{ m/min}$). |
-| **Peak Allocation Dwell Time** | 44.5 minutes (avg peak) | **< 3.0 minutes** | Estimated by eliminating sequential network roundtrips and table lock waits. |
-| **Stockout Pick Exceptions** | 19 events / month | **Target: < 3 events** | Model assumes dynamic safety stock buffers mitigate deep-storage starvation. |
+| **Average Picker Travel / Order** | 247.6 meters | **120.6 meters (-51.3%)** | $\frac{\text{Baseline Travel (297.1 km)} - \text{Relocation Savings (152.4 km)}}{1,200 \text{ orders}}$ |
+| **Monthly Travel Avoided** | 0 km | **152.4 km eliminated** | $586 \text{ relocated picks} \times 2 \times (145\text{m} - 15\text{m}) = 152,360\text{ m}$. |
+| **Walking Time Recovered** | 0 hours | **~42.3 picker-hours / mo** | Assumes standard picker walking speed of $1.0\text{ m/s}$ ($60\text{ m/min}$). |
+| **Peak Allocation Dwell Time** | 44.5 minutes (avg peak) | **< 3.0 minutes (Target Goal)** | Target achievable by non-blocking asynchronous batching and row-level locking. |
+| **Stockout Pick Exceptions** | 19 events / month | **Target: < 3 events (Target Goal)**| Dynamic safety stock buffers designed to mitigate deep-storage starvation. |
 
 ---
 
@@ -76,8 +80,8 @@ Observed Inefficiency Delta   --       +330.3 m (+373%)   +21.8 min (+190%) +21.
 
 #### Diagnostic Explanation:
 * The catalog assigned SKUs statically without periodic velocity recalculation.
-* Three top-velocity items (`SKU-A003` with 165 picks, `SKU-A001` with 144 picks, and `SKU-A002` with 143 picks) were slotted in deep storage bins (`ZONE_C-B001` through `ZONE_C-B003`), forcing pickers to make 452 long-distance round-trips to the back of the facility.
-* Meanwhile, low-velocity Class-C SKUs (`SKU-C011`, `SKU-C001`, `SKU-C016`) occupied prime mezzanine slots in Zone A despite averaging under 8 picks per month.
+* Four top-velocity items (`SKU-A003` with 165 picks, `SKU-A001` with 144 picks, `SKU-A002` with 143 picks, and `SKU-A004` with 134 picks) were slotted in deep storage bins (`ZONE_C-B001` through `ZONE_C-B004`), forcing pickers to make 586 long-distance round-trips to the back of the facility.
+* Meanwhile, low-velocity Class-C SKUs (`SKU-C011`, `SKU-C001`, `SKU-C016`, `SKU-C006`) occupied prime mezzanine slots in Zone A despite averaging under 10 picks per month.
 
 ---
 
@@ -112,26 +116,33 @@ flowchart LR
     P1["Proposal 1: SQL Dynamic Re-Slotting<br>(Pareto Velocity Swap Engine)"] --> Benefits["Target Outcomes"]
     P2["Proposal 2: Wave Batch-Picking<br>(Multi-Order Consolidation)"] --> Benefits
     P3["Proposal 3: Asynchronous Data Access<br>(Row-Level Locking & Batching)"] --> Benefits
-    Benefits --> Outcome["Estimated: -39% Travel Distance<br>Peak Allocation Dwell < 3 min"]
+    Benefits --> Outcome["Estimated: -51% Travel Distance<br>Peak Allocation Dwell < 3 min"]
 ```
 
-### Proposal 1: Dynamic SKU Re-Slotting Engine (SQL Stored Views)
+### Proposal 1: Dynamic SKU Re-Slotting Candidate Pairs (SQL Stored Views)
 Deploy an automated bi-weekly routine (`v_slotting_swap_proposals`) that pairs misallocated Class-A items in Zone C with slow-moving Class-C items in Zone A:
 
 * **Actionable Bin Swaps:**
   1. Relocate `SKU-A003` (165 picks) to Zone A $\leftrightarrow$ Demote `SKU-C011` (5 picks) to Zone C.
   2. Relocate `SKU-A001` (144 picks) to Zone A $\leftrightarrow$ Demote `SKU-C001` (6 picks) to Zone C.
   3. Relocate `SKU-A002` (143 picks) to Zone A $\leftrightarrow$ Demote `SKU-C016` (8 picks) to Zone C.
+  4. Relocate `SKU-A004` (134 picks) to Zone A $\leftrightarrow$ Demote `SKU-C006` (9 picks) to Zone C.
+
 * **Mathematical Derivation of Travel Savings:**
-  $$\Delta \text{Distance} = \sum_{i=1}^{3} \left( \text{Picks}_i \times 2 \times (\text{Dist}_{\text{Zone C}} - \text{Dist}_{\text{Zone A}}) \right)$$
-  $$\Delta \text{Distance} = (165 + 144 + 143) \times 2 \times (145\text{ m} - 15\text{ m}) = 452 \times 260\text{ m} = \mathbf{117,520\text{ meters (117.5 km/month)}}.$$
+  $$\Delta \text{Distance} = \sum_{i=1}^{4} \left( \text{Picks}_i \times 2 \times (\text{Dist}_{\text{Zone C}} - \text{Dist}_{\text{Zone A}}) \right)$$
+  $$\Delta \text{Distance} = (165 + 144 + 143 + 134) \times 2 \times (145\text{ m} - 15\text{ m}) = 586 \times 260\text{ m} = \mathbf{152,360\text{ meters (152.4 km/month)}}.$$
+
+* **Physical Modeling Assumptions & Feasibility Constraints:**
+  1. **Round-Trip Simplification:** The 260m round-trip saving per pick assumes single-SKU discrete travel from the dock to the zone centroid. In real-world multi-item orders or pick-tours, cross-aisle travel and S-shape routing will modulate actual floor savings.
+  2. **Candidate Screening List:** `v_slotting_swap_proposals` produces candidate pairs based purely on velocity; physical relocation requires engineering verification of shelf weight limits, SKU cube volume, and specialized handling types.
 
 ---
 
-### Proposal 2: Zone-Based Wave Batch-Picking
+### Proposal 2: Zone-Based Wave Batch-Picking (Consolidation Example)
 Transition from single-order discrete picking to multi-order wave batches (`v_wave_picking_batches`):
 * Consolidate single-item orders into 6-to-8 order partitioned pick carts.
 * Pickers traverse each aisle once per wave rather than making separate trips for each order line.
+*(Note: Illustrative grouping view; production deployment would integrate a traveling-salesman heuristic).*
 
 ---
 
@@ -148,7 +159,7 @@ Modernize legacy ADO.NET patterns as detailed in [`legacy_audit/VB_NET_AUDIT_REP
 | Phase | Duration | Technical Scope | Validation & Risk Mitigation |
 | :--- | :--- | :--- | :--- |
 | **Phase 1: Database Profiling** | Week 1 | Deploy SQL performance indexes; enable Read-Committed Snapshot Isolation. | Validate query plan cost reductions via `EXPLAIN QUERY PLAN` on staging server. |
-| **Phase 2: Pilot Physical Re-Slotting** | Week 2 | Physical relocation of top 3 mis-slotted SKUs to Zone A mezzanine bins. | Execute during scheduled off-shift; conduct barcode audit before resuming floor picks. |
+| **Phase 2: Pilot Physical Re-Slotting** | Week 2 | Physical relocation of top 4 mis-slotted SKUs to Zone A mezzanine bins. | Execute during scheduled off-shift; conduct barcode audit before resuming floor picks. |
 | **Phase 3: Dispatch Service Refactor** | Weeks 3–4 | Test proposed asynchronous data access patterns in development staging environment. | Run automated concurrency stress tests simulating 25 concurrent barcode scan terminals. |
 | **Phase 4: Floor SOP & Rollout** | Weeks 5–6 | Train floor pickers on wave batch-picking procedures; monitor live shift throughput. | Maintain single-order discrete fallback mode on RF handheld terminals. |
 

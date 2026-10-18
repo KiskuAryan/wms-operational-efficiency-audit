@@ -1,13 +1,17 @@
 -- ==============================================================================
 -- Warehouse Management System (WMS) - Operational Optimization Logic
--- Views, Stored Routines & Dynamic Re-Slotting Logic
--- Dialect: SQLite 3 (PostgreSQL equivalents noted where applicable)
+-- Views & Analytical Candidate Screening Logic
+-- Dialect: SQLite 3
 -- Author: Aryan Chintaman Manjhi (github.com/KiskuAryan)
 -- ==============================================================================
 
 -- ------------------------------------------------------------------------------
 -- 1. VIEW: Automated SKU Velocity Recalculation (Rolling 30-Day Window)
 -- Dynamically calculates SKU velocity from recent orders with explicit date filtering.
+-- Standard Pareto Classification:
+--   Class A: Top 80% cumulative pick events
+--   Class B: Next 15% (80% to 95% cumulative share)
+--   Class C: Remaining 5%
 -- ------------------------------------------------------------------------------
 DROP VIEW IF EXISTS v_sku_rolling_velocity;
 CREATE VIEW v_sku_rolling_velocity AS
@@ -45,17 +49,19 @@ SELECT
     pick_share_pct,
     cumulative_share_pct,
     CASE 
-        WHEN cumulative_share_pct <= 75.0 THEN 'A'
-        WHEN cumulative_share_pct <= 90.0 THEN 'B'
+        WHEN cumulative_share_pct <= 80.0 THEN 'A'
+        WHEN cumulative_share_pct <= 95.0 THEN 'B'
         ELSE 'C'
     END AS dynamic_abc_class
 FROM cumulative_calc;
 
 
 -- ------------------------------------------------------------------------------
--- 2. VIEW: Dynamic Re-Slotting Swap Recommendations
--- Pairs high-velocity Class-A SKUs trapped in Zone C with 
--- low-velocity Class-C SKUs occupying prime Zone A mezzanine slots.
+-- 2. VIEW: Dynamic Re-Slotting Candidate Pairs
+-- Generates a candidate screening list pairing high-velocity Class-A SKUs in Zone C
+-- with low-velocity Class-C SKUs occupying prime Zone A mezzanine slots.
+-- NOTE: Real-world execution requires operational validation of physical bin dimensions,
+-- weight capacity, and temperature/handling constraints before executing moves.
 -- ------------------------------------------------------------------------------
 DROP VIEW IF EXISTS v_slotting_swap_proposals;
 CREATE VIEW v_slotting_swap_proposals AS
@@ -96,15 +102,16 @@ SELECT
     s.prime_bin_code AS target_bin_zone_a,
     s.slow_sku_code AS demoted_sku_code,
     s.slow_product_name AS demoted_product,
-    'ESTIMATED TRAVEL SAVINGS: ~260m roundtrip per pick event' AS projected_impact_note
+    'THEORETICAL ESTIMATE: ~260m roundtrip saved per pick event' AS projected_impact_note
 FROM misallocated_fast_movers f
 JOIN misallocated_slow_movers s ON f.priority_rank = s.priority_rank;
 
 
 -- ------------------------------------------------------------------------------
--- 3. VIEW: Batch Wave-Picking Aggregation
--- Aggregates discrete pending orders into unified picking waves
--- (Note: In PostgreSQL, replace GROUP_CONCAT with STRING_AGG(o.order_number, ', '))
+-- 3. VIEW: Illustrative Aisle Order Consolidation (Wave Batching Example)
+-- Demonstrates how pending single-line orders traversing identical aisles can be
+-- consolidated to reduce repeated transit.
+-- (Note: Illustrative grouping example; not a traveling-salesman routing algorithm).
 -- ------------------------------------------------------------------------------
 DROP VIEW IF EXISTS v_wave_picking_batches;
 CREATE VIEW v_wave_picking_batches AS

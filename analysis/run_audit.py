@@ -172,23 +172,34 @@ def generate_dynamic_svgs(summary, zone_dict, hourly, dist_saved_km):
 
     # Chart 2: Hourly Dwell Time Polyline
     peak_dwell = max(h['alloc_dwell'] for h in hourly)
+    poly_pts = []
+    svg_circles = []
+    for idx, h in enumerate(hourly):
+        x = 100 + idx * 60
+        y = int(240 - ((h['alloc_dwell'] - 10.0) / 40.0) * 160)
+        y = max(70, min(250, y))
+        poly_pts.append(f"{x},{y}")
+        if h['alloc_dwell'] == peak_dwell:
+            svg_circles.append(f'<circle cx="{x}" cy="{y}" r="5" fill="#ef4444"/><text x="{x}" y="{y-12}" text-anchor="middle" fill="#f8fafc" font-size="11">{h["hr"]} Peak ({h["alloc_dwell"]} min)</text>')
+        else:
+            svg_circles.append(f'<circle cx="{x}" cy="{y}" r="3" fill="#38bdf8"/>')
+
+    points_str = " ".join(poly_pts)
+    circles_str = "\n        ".join(svg_circles)
+
     svg2 = f"""<svg xmlns="http://www.w3.org/2000/svg" width="750" height="360" viewBox="0 0 750 360" style="background:#0f172a; font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;">
         <text x="375" y="32" text-anchor="middle" fill="#f8fafc" font-size="16" font-weight="bold">Allocation Dwell Time Across Shift Operating Hours</text>
-        <text x="375" y="52" text-anchor="middle" fill="#94a3b8" font-size="12">[Simulation Model: Daytime Volume Surge between 10:00 and 14:00]</text>
+        <text x="375" y="52" text-anchor="middle" fill="#94a3b8" font-size="12">[Simulation Model: Modeled Midday Volume Surge between 10:00 and 14:00]</text>
         
         <line x1="80" y1="280" x2="680" y2="280" stroke="#334155" stroke-width="2"/>
         
-        <!-- Peak Zone Box -->
-        <rect x="220" y="70" width="310" height="210" fill="rgba(239, 68, 68, 0.12)" stroke="#ef4444" stroke-dasharray="4"/>
-        <text x="375" y="90" text-anchor="middle" fill="#f87171" font-size="12" font-weight="bold">Peak Shift Congestion (Max: {peak_dwell} min dwell)</text>
+        <!-- Peak Zone Box (10:00 to 14:00 indices: 2 to 6 => x: 200 to 480) -->
+        <rect x="200" y="65" width="280" height="215" fill="rgba(239, 68, 68, 0.12)" stroke="#ef4444" stroke-dasharray="4"/>
+        <text x="340" y="85" text-anchor="middle" fill="#f87171" font-size="12" font-weight="bold">Peak Shift Congestion (10:00 - 14:00)</text>
 
-        <!-- Approximate Polyline for visual trend -->
-        <polyline fill="none" stroke="#38bdf8" stroke-width="3" points="
-            100,230 160,230 230,85 300,80 370,82 440,84 510,95 570,225 630,235 670,238
-        "/>
-        
-        <circle cx="300" cy="80" r="5" fill="#ef4444"/>
-        <text x="300" y="68" text-anchor="middle" fill="#f8fafc" font-size="11">11:00 Peak</text>
+        <!-- Dynamic Polyline -->
+        <polyline fill="none" stroke="#38bdf8" stroke-width="3" points="{points_str}"/>
+        {circles_str}
 
         <text x="375" y="315" text-anchor="middle" fill="#94a3b8" font-size="12">Operating Shift Hours (08:00 - 17:00)</text>
     </svg>"""

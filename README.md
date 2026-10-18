@@ -30,9 +30,9 @@ The figures below distinguish between **observed simulation baseline data** and 
 | Performance Metric | Observed Simulation Baseline | Theoretical Model Projection | Derivation / Assumptions |
 | :--- | :--- | :--- | :--- |
 | **Average Order Cycle Time** | 101.6 minutes | **~67.2 minutes (-33.8%)** | Calculated by subtracting projected travel time savings and queue wait reduction. |
-| **Average Picker Travel / Order** | 247.6 meters | **149.7 meters (-39.5%)** | $\frac{\text{Baseline Travel (297.1 km)} - \text{Relocation Savings (117.5 km)}}{1,200 \text{ orders}}$ |
-| **Monthly Travel Avoided** | 0 km | **117.5 km eliminated** | $452 \text{ relocated picks} \times 2 \times (145\text{m} - 15\text{m}) = 117,520\text{ m}$. |
-| **Walking Time Recovered** | 0 hours | **~32.6 picker-hours / mo** | Assumes standard picker walking speed of $1.0\text{ m/s}$ ($60\text{ m/min}$). |
+| **Average Picker Travel / Order** | 247.6 meters | **120.6 meters (-51.3%)** | $\frac{\text{Baseline Travel (297.1 km)} - \text{Relocation Savings (152.4 km)}}{1,200 \text{ orders}}$ |
+| **Monthly Travel Avoided** | 0 km | **152.4 km eliminated** | $586 \text{ relocated picks} \times 2 \times (145\text{m} - 15\text{m}) = 152,360\text{ m}$. |
+| **Walking Time Recovered** | 0 hours | **~42.3 picker-hours / mo** | Assumes standard picker walking speed of $1.0\text{ m/s}$ ($60\text{ m/min}$). |
 | **Peak Allocation Dwell Time** | 44.5 minutes (avg peak) | **< 3.0 minutes** | Estimated by eliminating sequential network roundtrips and table lock waits. |
 | **Stockout Pick Exceptions** | 19 events / month | **Target: < 3 events** | Dynamic safety stock buffers mitigate deep-storage starvation. |
 
@@ -41,14 +41,14 @@ The figures below distinguish between **observed simulation baseline data** and 
 ## 🔍 Key Findings from the Simulation
 
 ### 1. The Deep Storage Travel Penalty (Physical Slotting)
-* **The Root Cause:** Three top-velocity Class-A SKUs (`SKU-A001`, `SKU-A002`, `SKU-A003`) accounting for 452 picks were statically assigned to **Zone C (Deep Bulk Storage)**, 145 meters from shipping docks.
+* **The Root Cause:** Four top-velocity Class-A SKUs (`SKU-A001`, `SKU-A002`, `SKU-A003`, `SKU-A004`) accounting for 586 picks were statically assigned to **Zone C (Deep Bulk Storage)**, 145 meters from shipping docks.
 * **The Simulation Impact:** Orders requiring Zone C items averaged **418.8 meters** of picker transit and **33.3 minutes** of pick duration, compared to **88.5 meters** and **11.5 minutes** for proximity orders in Zone A/B.
 * **The Optimization:** An automated SQL view (`v_slotting_swap_proposals`) pairs these fast-movers with slow-moving Class-C items occupying prime mezzanine space in Zone A.
 
 ```
 Zone C Access (Deep Storage) : 418.8 m travel | 33.3 min pick duration  [19 exceptions]
 Zone A/B Only (Proximity)    :  88.5 m travel | 11.5 min pick duration  [ 0 exceptions]
---> Relocation Savings       : 452 picks * 260m roundtrip = 117.5 km walking eliminated / month
+--> Relocation Savings       : 586 picks * 260m roundtrip = 152.4 km walking eliminated / month
 ```
 
 ### 2. Shift-Hour Dispatch Queueing (10:00–14:00 Surge)
