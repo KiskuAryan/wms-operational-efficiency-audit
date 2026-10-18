@@ -35,8 +35,8 @@ Over a simulated 30-day evaluation period comprising 1,200 customer orders and 2
 | **Average Picker Travel / Order** | 247.6 meters | **120.6 meters (-51.3%)** | $\frac{\text{Baseline Travel (297.1 km)} - \text{Relocation Savings (152.4 km)}}{1,200 \text{ orders}}$ |
 | **Monthly Travel Avoided** | 0 km | **152.4 km eliminated** | $586 \text{ relocated picks} \times 2 \times (145\text{m} - 15\text{m}) = 152,360\text{ m}$. |
 | **Walking Time Recovered** | 0 hours | **~42.3 picker-hours / mo** | Assumes standard picker walking speed of $1.0\text{ m/s}$ ($60\text{ m/min}$). |
-| **Peak Allocation Dwell Time** | 44.5 minutes (avg peak) | **< 3.0 minutes (Design Goal)** | *Unvalidated Target:* Assumes non-blocking asynchronous batching and row-level locking eliminate dispatch backlog. |
-| **Stockout Pick Exceptions** | 19 events / month | **Target: < 3 events (Design Goal)**| *Target Goal:* In simulation, a 4% stochastic error rate was assigned to Zone C orders; eliminating Zone C picks proportionally reduces exposure. |
+| **Peak Allocation Dwell Time** | 44.5 minutes (avg peak) | **< 3.0 minutes (Unvalidated Design Goal)** | The code does not simulate or benchmark the proposed dispatch design; this target requires a measured concurrency test. |
+| **Stockout Pick Exceptions** | 19 events / month | **Not projected** | Exceptions are assigned stochastically to Zone C orders. The model does not simulate replenishment, safety-stock decisions, or post-relocation exception rates. |
 
 ---
 
@@ -112,7 +112,7 @@ Shift Hour     Orders Processed    Allocation Dwell Time    Total Order Cycle
 #### Diagnostic Explanation:
 * Average cycle time across all 1,200 orders: **101.6 minutes**.
 * Component breakdown: Allocation Dwell (37.8 min) + Pick Transit (22.0 min) + Packing (8.0 min) + Staging (30.3 min).
-* The 10:00–14:00 volume surge creates a modeled backlog where allocation dwell reaches 44.5 minutes, representing dispatch queueing in synchronous, single-threaded architectures.
+* The generator assigns longer synthetic allocation delays to orders during 10:00–14:00. It does not simulate a queue or database concurrency, so these timestamps illustrate a scenario rather than measure a specific architecture.
 
 ---
 
@@ -154,9 +154,9 @@ Transition from single-order discrete picking to multi-order wave batches (`v_wa
 
 ### Proposal 3: Asynchronous .NET Data Access Refactor (Conceptual Sketch)
 Modernize legacy ADO.NET patterns as detailed in [`legacy_audit/VB_NET_AUDIT_REPORT.md`](../legacy_audit/VB_NET_AUDIT_REPORT.md):
-1. **Consistent Batch Selection:** Replace $N+1$ query loops with atomic multi-table result sets (`SqlDataAdapter.Fill` with parent-child table mappings).
+1. **Single-Roundtrip Batch Retrieval:** Replace $N+1$ query loops with multi-table result sets. The example selects a consistent set of IDs, but does not reserve orders; concurrent workers can select the same orders until an atomic claim or lease protocol is added.
 2. **Aggregated Bin Availability:** Pre-aggregate requested item quantities by bin before checking availability, preventing duplicate line items from over-allocating stock.
-3. **Row-Level Concurrency:** Replace `TABLOCKX` with `ROWLOCK, UPDLOCK` to ensure handheld RF scanners can read inventory concurrently.
+3. **Narrower Locking:** Replace `TABLOCKX` with targeted update locks as a design to reduce broad contention. SQL Server may escalate locks, so scanner concurrency and deadlocks must be measured; `ROWLOCK` is not a guarantee.
 
 ---
 

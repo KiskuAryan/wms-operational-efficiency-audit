@@ -117,9 +117,10 @@ Namespace ConceptualWMS.DataAccess
 
         ''' <summary>
         ''' CONCEPTUAL FIX 1: Consistent Single-Roundtrip Batching
-        ''' Uses a table variable snapshot to retrieve parent and child records in a single
-        ''' roundtrip without race conditions.
-        ''' (Note: In production, consider Dapper or EF Core with compiled queries).
+        ''' Uses a table variable to retrieve a consistent set of parent and child records
+        ''' in one roundtrip. This is read-only selection; it does not reserve or claim orders,
+        ''' so concurrent workers may select the same pending orders.
+        ''' (Note: Production dispatch needs an explicit atomic claim/lease protocol.)
         ''' </summary>
         Public Async Function GetPendingOrdersBatchAsync(batchSize As Integer) As Task(Of DataSet)
             Dim ds As New DataSet("WmsPendingBatch")
@@ -148,15 +149,35 @@ Namespace ConceptualWMS.DataAccess
                     cmd.Parameters.Add(New SqlParameter("@BatchSize", SqlDbType.Int) With {.Value = batchSize})
                     
                     Await conn.OpenAsync()
-                    Using adapter As New SqlDataAdapter(cmd)
-                        adapter.TableMappings.Add("Table", "Orders")
-                        adapter.TableMappings.Add("Table1", "OrderItems")
-                        adapter.Fill(ds)
+                    Using reader As SqlDataReader = Await cmd.ExecuteReaderAsync()
+                        Dim ordersTable As DataTable = Await ReadResultAsync(reader, "Orders")
+                        ds.Tables.Add(ordersTable)
+                        If Await reader.NextResultAsync() Then
+                            Dim itemsTable As DataTable = Await ReadResultAsync(reader, "OrderItems")
+                            ds.Tables.Add(itemsTable)
+                        End If
                     End Using
                 End Using
             End Using
 
             Return ds
+        End Function
+
+        ''' <summary>
+        ''' Materializes a result set while asynchronously reading rows from SQL Server.
+        ''' </summary>
+        Private Shared Async Function ReadResultAsync(reader As SqlDataReader, tableName As String) As Task(Of DataTable)
+            Dim table As New DataTable(tableName)
+            For columnIndex As Integer = 0 To reader.FieldCount - 1
+                table.Columns.Add(reader.GetName(columnIndex), reader.GetFieldType(columnIndex))
+            Next
+
+            While Await reader.ReadAsync()
+                Dim values(reader.FieldCount - 1) As Object
+                reader.GetValues(values)
+                table.Rows.Add(values)
+            End While
+            Return table
         End Function
 
 
@@ -170,53 +191,37 @@ Namespace ConceptualWMS.DataAccess
         ''' </summary>
         Public Async Function TryAllocateOrderAtomicAsync(orderId As Integer) As Task(Of Boolean)
             Const atomicSql As String =
-                "BEGIN TRANSACTION; " &
-                " " &
-                "-- Verify order exists and is currently PENDING " &
-                "IF NOT EXISTS (SELECT 1 FROM orders WITH (UPDLOCK, ROWLOCK) WHERE order_id = @OrderId AND status = 'PENDING') " &
-                "BEGIN " &
-                "    ROLLBACK TRANSACTION; " &
-                "    SELECT 0 AS AllocationSuccess; " &
-                "    RETURN; " &
-                "END; " &
-                " " &
-                "-- Calculate aggregate quantity demanded per bin for this order " &
-                ";WITH BinDemand AS ( " &
-                "    SELECT allocated_bin_id, SUM(requested_qty) AS total_demanded_qty " &
-                "    FROM order_items " &
-                "    WHERE order_id = @OrderId " &
-                "    GROUP BY allocated_bin_id " &
-                "), " &
-                "AvailableBins AS ( " &
-                "    SELECT bd.allocated_bin_id, bd.total_demanded_qty " &
-                "    FROM BinDemand bd " &
-                "    INNER JOIN inventory_bins b WITH (UPDLOCK, ROWLOCK) ON bd.allocated_bin_id = b.bin_id " &
-                "    WHERE b.current_qty >= bd.total_demanded_qty " &
-                ") " &
-                "-- Ensure every distinct bin has sufficient aggregate stock " &
-                "IF (SELECT COUNT(*) FROM BinDemand) = (SELECT COUNT(*) FROM AvailableBins) " &
-                "BEGIN " &
-                "    -- Atomically deduct aggregated stock from inventory bins " &
-                "    UPDATE b WITH (ROWLOCK) " &
-                "    SET b.current_qty = b.current_qty - bd.total_demanded_qty " &
-                "    FROM inventory_bins b " &
-                "    INNER JOIN ( " &
-                "        SELECT allocated_bin_id, SUM(requested_qty) AS total_demanded_qty " &
-                "        FROM order_items " &
-                "        WHERE order_id = @OrderId " &
-                "        GROUP BY allocated_bin_id " &
-                "    ) bd ON b.bin_id = bd.allocated_bin_id; " &
-                " " &
-                "    -- Mark order as ALLOCATED " &
-                "    UPDATE orders SET status = 'ALLOCATED' WHERE order_id = @OrderId; " &
-                "    COMMIT TRANSACTION; " &
-                "    SELECT 1 AS AllocationSuccess; " &
-                "END " &
-                "ELSE " &
-                "BEGIN " &
-                "    ROLLBACK TRANSACTION; " &
-                "    SELECT 0 AS AllocationSuccess; " &
-                "END;"
+                "SET NOCOUNT ON; SET XACT_ABORT ON; " &
+                "DECLARE @AllocationSuccess bit = 0; " &
+                "DECLARE @BinDemand TABLE (bin_id int PRIMARY KEY, total_demanded_qty int NOT NULL); " &
+                "BEGIN TRY " &
+                "  BEGIN TRANSACTION; " &
+                "  IF EXISTS (SELECT 1 FROM orders WITH (UPDLOCK, HOLDLOCK) WHERE order_id = @OrderId AND status = 'PENDING') " &
+                "     AND EXISTS (SELECT 1 FROM order_items WHERE order_id = @OrderId) " &
+                "     AND NOT EXISTS (SELECT 1 FROM order_items WHERE order_id = @OrderId AND allocated_bin_id IS NULL) " &
+                "  BEGIN " &
+                "    INSERT INTO @BinDemand (bin_id, total_demanded_qty) " &
+                "    SELECT allocated_bin_id, SUM(requested_qty) FROM order_items " &
+                "    WHERE order_id = @OrderId GROUP BY allocated_bin_id; " &
+                "    DECLARE @AvailableBins int; " &
+                "    SELECT @AvailableBins = COUNT(*) FROM @BinDemand d " &
+                "    INNER JOIN inventory_bins b WITH (UPDLOCK, HOLDLOCK, ROWLOCK) ON b.bin_id = d.bin_id " &
+                "    WHERE b.current_qty >= d.total_demanded_qty; " &
+                "    IF @AvailableBins = (SELECT COUNT(*) FROM @BinDemand) " &
+                "    BEGIN " &
+                "      UPDATE b SET current_qty = b.current_qty - d.total_demanded_qty " &
+                "      FROM inventory_bins b INNER JOIN @BinDemand d ON d.bin_id = b.bin_id; " &
+                "      UPDATE orders SET status = 'ALLOCATED' WHERE order_id = @OrderId AND status = 'PENDING'; " &
+                "      IF @@ROWCOUNT = 1 SET @AllocationSuccess = 1; " &
+                "    END; " &
+                "  END; " &
+                "  COMMIT TRANSACTION; " &
+                "  SELECT @AllocationSuccess AS AllocationSuccess; " &
+                "END TRY " &
+                "BEGIN CATCH " &
+                "  IF XACT_STATE() <> 0 ROLLBACK TRANSACTION; " &
+                "  THROW; " &
+                "END CATCH;"
 
             Using conn As New SqlConnection(_connectionString)
                 Using cmd As New SqlCommand(atomicSql, conn)

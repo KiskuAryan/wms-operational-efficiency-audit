@@ -33,8 +33,8 @@ The figures below distinguish between **observed simulation baseline data** and 
 | **Average Picker Travel / Order** | 247.6 meters | **120.6 meters (-51.3%)** | $\frac{\text{Baseline Travel (297.1 km)} - \text{Relocation Savings (152.4 km)}}{1,200 \text{ orders}}$ |
 | **Monthly Travel Avoided** | 0 km | **152.4 km eliminated** | $586 \text{ relocated picks} \times 2 \times (145\text{m} - 15\text{m}) = 152,360\text{ m}$. |
 | **Walking Time Recovered** | 0 hours | **~42.3 picker-hours / mo** | Assumes standard picker walking speed of $1.0\text{ m/s}$ ($60\text{ m/min}$). |
-| **Peak Allocation Dwell Time** | 44.5 minutes (avg peak) | **< 3.0 minutes (Design Goal)** | *Unvalidated Target:* Assumes non-blocking asynchronous batching and row-level locking eliminate dispatch backlog. |
-| **Stockout Pick Exceptions** | 19 events / month | **Target: < 3 events (Design Goal)**| *Target Goal:* In simulation, a 4% stochastic error rate was assigned to Zone C orders; eliminating Zone C picks proportionally reduces exposure. |
+| **Peak Allocation Dwell Time** | 44.5 minutes (avg peak) | **< 3.0 minutes (Unvalidated Design Goal)** | The code does not simulate or benchmark the proposed dispatch design; this target requires a measured concurrency test. |
+| **Stockout Pick Exceptions** | 19 events / month | **Not projected** | Exceptions are assigned stochastically to Zone C orders; this simulation does not model replenishment or post-change exception rates. |
 
 ---
 
@@ -54,7 +54,7 @@ Zone A/B Only (Proximity)    :  88.5 m travel | 11.5 min pick duration  [ 0 exce
 ### 2. Shift-Hour Dispatch Queueing (10:00–14:00 Surge)
 * **The Root Cause:** Simulating legacy ADO.NET single-threaded batching where order waves execute sequentially with $N+1$ network roundtrips and table-level locks.
 * **The Simulation Impact:** Allocation dwell time jumped from an off-peak average of 11.6 minutes to **44.5 minutes** during midday volume peaks (10:00–14:00).
-* **The Modernization Sketch:** Migrates to asynchronous multi-table batch retrieval and row-level concurrency (`ROWLOCK, UPDLOCK`), preventing terminal freezes on worker RF scanners.
+* **The Modernization Sketch:** Demonstrates asynchronous multi-table retrieval and transactional inventory updates. The benefit to scanner responsiveness is a hypothesis requiring SQL Server concurrency testing; lock hints do not guarantee row-level locks.
 
 ---
 
