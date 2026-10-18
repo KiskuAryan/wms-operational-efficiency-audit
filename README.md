@@ -6,8 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.9%2B%20Diagnostic%20Engine-3776AB?style=flat-square&logo=python)](analysis/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
-> **Methodology & Authenticity Disclaimer:**  
-> This repository is an **illustrative, synthetic simulation study** demonstrating a quantitative audit methodology for Warehouse Management Systems (WMS). All operational transaction logs (1,200 orders, 50 SKUs, 3 warehouse zones) are synthetically generated via calibrated statistical distributions (`scripts/seed_database.py`). It is designed to illustrate how data diagnostics, SQL optimization, and backend architectural refactoring can address classic supply-chain bottlenecks. Real-world implementation requires empirical validation against live facility telemetry and operational constraints.
+> This repository is an **illustrative, synthetic simulation study** demonstrating a quantitative audit methodology for Warehouse Management Systems (WMS). All operational transaction logs (1,200 orders, 50 SKUs, 3 warehouse zones) are synthetically generated via calibrated statistical distributions (`scripts/seed_database.py`). It is designed to illustrate how data diagnostics, SQL optimization, and backend architectural refactoring can address classic supply-chain bottlenecks. Practical field implementation requires on-site validation against live facility telemetry, equipment constraints, and warehouse operational workflows.
 
 ---
 

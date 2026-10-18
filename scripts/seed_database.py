@@ -159,7 +159,7 @@ def generate_data(conn, order_count=1200):
 
     for o_idx in range(1, order_count + 1):
         days_offset = random.randint(0, 29)
-        # Shift distribution: warehouse operates 08:00 - 18:00 with peak rush between 10:00 and 14:00
+        # Shift distribution: warehouse operates 08:00 - 17:00 with peak rush between 10:00 and 14:00
         hour = random.choices(
             population=[8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
             weights=[5, 8, 18, 22, 16, 13, 10, 5, 2, 1],

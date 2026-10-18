@@ -12,7 +12,7 @@
 > **Data Authenticity & Modeling Methodology:**  
 > All facility operational metrics, order logs, and transaction timestamps analyzed in this report are **synthetically generated** through a calibrated discrete-event simulation model (`scripts/seed_database.py`). The parameters are grounded in established industrial engineering distributions (Pareto 80/20 SKU demand, Poisson-like order arrivals during shift surges, and Euclidean aisle transit vectors).  
 >
-> This report demonstrates an **analytical audit methodology, SQL optimization pipeline, and architectural modernization framework**. The conclusions and projected gains represent **theoretical model estimates**; real-world deployment requires empirical validation against an organization's specific warehouse layout, WMS telemetry, and physical labor workflows.
+> This report demonstrates an **analytical audit methodology, SQL optimization pipeline, and architectural modernization framework**. The conclusions and projected gains represent **theoretical model estimates**; practical field implementation requires on-site validation against an organization's specific warehouse layout, physical equipment, WMS telemetry, and labor workflows.
 
 ---
 
