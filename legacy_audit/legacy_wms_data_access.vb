@@ -1,12 +1,15 @@
 ' ==============================================================================
-' Legacy Warehouse Management System (WMS) - Data Access Module
-' Status: Illustrative Architectural Study & Conceptual Refactor Sketch
+' Warehouse Management System (WMS) - Data Access Module
+' Status: Incomplete Conceptual Architectural Sketch (Illustrative Study)
 ' Author: Aryan Chintaman Manjhi (github.com/KiskuAryan)
 '
-' DISCLAIMER:
-' This file contains conceptual ADO.NET code sketches illustrating legacy
-' anti-patterns alongside proposed modern patterns. It is intended for architectural
-' analysis and review, not as a standalone compiled production binary.
+' IMPORTANT ARCHITECTURAL DISCLAIMER:
+' This file contains conceptual ADO.NET sketches demonstrating the difference
+' between legacy single-threaded locking patterns and modern asynchronous,
+' row-level patterns. It is an incomplete design study intended for architectural
+' discussion and review, NOT a compiled or production-validated binary.
+' Production deployment requires integration testing, concurrency benchmarks,
+' and edge-case handling for warehouse-specific workflows.
 ' ==============================================================================
 
 Imports System
@@ -100,8 +103,9 @@ Namespace ConceptualWMS.DataAccess
 
 
     ''' <summary>
-    ''' PART 2: PROPOSED MODERN ARCHITECTURAL SKETCH
-    ''' Demonstrates consistent batch selection, full-order atomicity, and non-blocking async I/O.
+    ''' PART 2: PROPOSED ARCHITECTURAL SKETCH (Conceptual Modernization)
+    ''' Demonstrates consistent batch selection, aggregated bin availability checking,
+    ''' and non-blocking asynchronous execution.
     ''' </summary>
     Public Class ProposedOptimizedFulfillmentService
 
@@ -112,9 +116,10 @@ Namespace ConceptualWMS.DataAccess
         End Sub
 
         ''' <summary>
-        ''' PROPOSED FIX 1: Consistent Single-Roundtrip Batching
-        ''' Uses a table variable snapshot to guarantee consistent parent-child batch retrieval
-        ''' in a single database roundtrip without race conditions.
+        ''' CONCEPTUAL FIX 1: Consistent Single-Roundtrip Batching
+        ''' Uses a table variable snapshot to retrieve parent and child records in a single
+        ''' roundtrip without race conditions.
+        ''' (Note: In production, consider Dapper or EF Core with compiled queries).
         ''' </summary>
         Public Async Function GetPendingOrdersBatchAsync(batchSize As Integer) As Task(Of DataSet)
             Dim ds As New DataSet("WmsPendingBatch")
@@ -156,35 +161,53 @@ Namespace ConceptualWMS.DataAccess
 
 
         ''' <summary>
-        ''' PROPOSED FIX 2: Full-Order All-or-Nothing Atomicity with Row-Level Concurrency
-        ''' Ensures partial allocations are rejected: an order is either 100% allocated or rolled back.
-        ''' Uses ROWLOCK to eliminate whole-table freezing on worker RF scanners.
+        ''' CONCEPTUAL FIX 2: Aggregated Bin Availability & Atomic Allocation
+        ''' Revised logic addresses:
+        ''' 1. Verifies order is PENDING prior to allocation.
+        ''' 2. Aggregates demand per bin to prevent duplicate line items exceeding available stock.
+        ''' 3. Uses ROWLOCK, UPDLOCK on bins to eliminate whole-table freezing on worker RF scanners.
+        ''' (Note: Conceptual sketch. Production requires handling multi-warehouse transfers and serialized lots).
         ''' </summary>
         Public Async Function TryAllocateOrderAtomicAsync(orderId As Integer) As Task(Of Boolean)
-            ' Atomic verification and decrement script:
-            ' Step 1: Count line items that have sufficient stock.
-            ' Step 2: If available items match total order items, perform row-level update and commit.
-            ' Step 3: Otherwise, roll back immediately (prevents orphaned half-allocated orders).
             Const atomicSql As String =
                 "BEGIN TRANSACTION; " &
                 " " &
-                "DECLARE @TotalLines INT, @AvailableLines INT; " &
-                " " &
-                "SELECT @TotalLines = COUNT(*) FROM order_items WHERE order_id = @OrderId; " &
-                " " &
-                "SELECT @AvailableLines = COUNT(*) " &
-                "FROM order_items oi " &
-                "INNER JOIN inventory_bins b WITH (UPDLOCK, ROWLOCK) ON oi.allocated_bin_id = b.bin_id " &
-                "WHERE oi.order_id = @OrderId AND b.current_qty >= oi.requested_qty; " &
-                " " &
-                "IF @TotalLines = @AvailableLines AND @TotalLines > 0 " &
+                "-- Verify order exists and is currently PENDING " &
+                "IF NOT EXISTS (SELECT 1 FROM orders WITH (UPDLOCK, ROWLOCK) WHERE order_id = @OrderId AND status = 'PENDING') " &
                 "BEGIN " &
-                "    UPDATE b WITH (ROWLOCK) " &
-                "    SET b.current_qty = b.current_qty - oi.requested_qty " &
-                "    FROM inventory_bins b " &
-                "    INNER JOIN order_items oi ON b.bin_id = oi.allocated_bin_id " &
-                "    WHERE oi.order_id = @OrderId; " &
+                "    ROLLBACK TRANSACTION; " &
+                "    SELECT 0 AS AllocationSuccess; " &
+                "    RETURN; " &
+                "END; " &
                 " " &
+                "-- Calculate aggregate quantity demanded per bin for this order " &
+                ";WITH BinDemand AS ( " &
+                "    SELECT allocated_bin_id, SUM(requested_qty) AS total_demanded_qty " &
+                "    FROM order_items " &
+                "    WHERE order_id = @OrderId " &
+                "    GROUP BY allocated_bin_id " &
+                "), " &
+                "AvailableBins AS ( " &
+                "    SELECT bd.allocated_bin_id, bd.total_demanded_qty " &
+                "    FROM BinDemand bd " &
+                "    INNER JOIN inventory_bins b WITH (UPDLOCK, ROWLOCK) ON bd.allocated_bin_id = b.bin_id " &
+                "    WHERE b.current_qty >= bd.total_demanded_qty " &
+                ") " &
+                "-- Ensure every distinct bin has sufficient aggregate stock " &
+                "IF (SELECT COUNT(*) FROM BinDemand) = (SELECT COUNT(*) FROM AvailableBins) " &
+                "BEGIN " &
+                "    -- Atomically deduct aggregated stock from inventory bins " &
+                "    UPDATE b WITH (ROWLOCK) " &
+                "    SET b.current_qty = b.current_qty - bd.total_demanded_qty " &
+                "    FROM inventory_bins b " &
+                "    INNER JOIN ( " &
+                "        SELECT allocated_bin_id, SUM(requested_qty) AS total_demanded_qty " &
+                "        FROM order_items " &
+                "        WHERE order_id = @OrderId " &
+                "        GROUP BY allocated_bin_id " &
+                "    ) bd ON b.bin_id = bd.allocated_bin_id; " &
+                " " &
+                "    -- Mark order as ALLOCATED " &
                 "    UPDATE orders SET status = 'ALLOCATED' WHERE order_id = @OrderId; " &
                 "    COMMIT TRANSACTION; " &
                 "    SELECT 1 AS AllocationSuccess; " &
