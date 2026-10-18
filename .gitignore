@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Database files that can be regenerated
+*.db-journal
+
+# OS generated files
+.DS_Store
+Thumbs.db

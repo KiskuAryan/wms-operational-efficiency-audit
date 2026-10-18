@@ -1,0 +1,6 @@
+# No mandatory third-party dependencies are required to run this audit.
+# The project uses native Python 3 standard library and SQLite3.
+#
+# Optional visualization libraries (if you wish to extend the charts):
+# matplotlib>=3.7.0
+# pandas>=2.0.0

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="350" viewBox="0 0 700 350" style="background:#0f172a; font-family:sans-serif;">
+        <text x="350" y="35" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="bold">Picker Travel &amp; Pick Duration: Deep Storage vs Proximity</text>
+        <line x1="100" y1="280" x2="620" y2="280" stroke="#334155" stroke-width="2"/>
+        
+        <!-- Deep Zone C -->
+        <rect x="160" y="80" width="130" height="200" rx="6" fill="#ef4444"/>
+        <text x="225" y="70" text-anchor="middle" fill="#ef4444" font-weight="bold" font-size="14">418.8 m (33.3 min)</text>
+        <text x="225" y="305" text-anchor="middle" fill="#94a3b8" font-size="12">Zone C (Deep Storage)</text>
+
+        <!-- Zone A / B -->
+        <rect x="410" y="235" width="130" height="45" rx="6" fill="#10b981"/>
+        <text x="475" y="225" text-anchor="middle" fill="#10b981" font-weight="bold" font-size="14">88.5 m (11.5 min)</text>
+        <text x="475" y="305" text-anchor="middle" fill="#94a3b8" font-size="12">Zone A / B (Proximity)</text>
+
+        <!-- Benchmark Arrow & Tag -->
+        <text x="350" y="150" text-anchor="middle" fill="#38bdf8" font-size="14" font-weight="bold">-78.8% Travel Distance</text>
+        <text x="350" y="170" text-anchor="middle" fill="#38bdf8" font-size="12">via Optimal Re-Slotting</text>
+    </svg>
